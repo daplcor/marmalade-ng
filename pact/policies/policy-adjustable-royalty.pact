@@ -15,7 +15,7 @@
   ; Schemas and Tables
   ;-----------------------------------------------------------------------------
 
-  ; Store the royalty informations per token
+  ; Store the royalty information per token
   (defschema royalty-token-sch
     token-id:string
     creator-account:string
@@ -25,7 +25,7 @@
 
   (deftable royalty-tokens:{royalty-token-sch})
 
-  ; Store the royalty informations per sale
+  ; Store the royalty information per sale
   (defschema royalty-sale-sch
     currency:module{fungible-v2}
     sale-rate:decimal
@@ -95,7 +95,7 @@
           (royalty-msg (read-royalty-sale-msg token)))
 
       (with-read royalty-tokens (at 'id token) {'rate:=rate}
-        ; Check that the creator did'n change the royalty just before the sale has been submitted
+        ; Check that the creator didn't change the royalty just before the sale was submitted
         (enforce (<= rate (at 'maximum_royalty royalty-msg)) "Royalty is higher than expected")
 
         ; Copy the rate into the sale to fix it
