@@ -15,7 +15,7 @@
   ; Schemas and Tables
   ;-----------------------------------------------------------------------------
 
-  ; Store the royalty informations per token
+  ; Store the royalty information per token
   (defschema royalty-token-sch
     token-id:string
     creator-account:string
@@ -25,7 +25,7 @@
 
   (deftable royalty-tokens:{royalty-token-sch})
 
-  ; Store the royalty informations per sale
+  ; Store the royalty information per sale
   (defschema royalty-sale-sch
     currency:module{fungible-v2}
     sale-rate:decimal
