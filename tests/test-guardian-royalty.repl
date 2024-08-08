@@ -1,0 +1,231 @@
+(env-data {"disable-marmalade":true})
+(load "kadena_repl_sandbox/kda-env/init.repl")
+(load "init/init-ledger.repl")
+(load "init/init-policy-fixed-sale.repl")
+
+(begin-tx)
+(load "stubs/fake-fungible.pact")
+(commit-tx)
+
+(begin-tx)
+(load "tools/events_analyzer.pact")
+(commit-tx)
+
+(begin-tx)
+(env-data {
+    'g:["g-key"]
+})
+(load "../guardians/custom-royalty.pact")
+(create-table royalty-sales)
+(create-table royalty-tokens)
+(commit-tx)
+
+
+(begin-tx "Create a token")
+(env-hash (hash "CreateTx"))
+(use marmalade-ng.ledger)
+(use free.guardian-royalty)
+
+(env-data {'create-ks:["create"]})
+
+(env-sigs [{'key:"create", 'caps:[(ENFORCE-RESERVED)]}])
+
+(print (+ "Token ID: => " (create-token-id (read-keyset 'create-ks) "http://token-with-royalty" )))
+
+; Try to create without the royalty data
+(expect-failure "Data missing" "royalty not present in data"
+  (create-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" 1 "http://token-with-royalty"
+                [marmalade-ng.policy-fixed-sale, free.guardian-royalty] (read-keyset 'create-ks)))
+
+; Try to create with bad royalty data
+;    -> bad account name
+(env-data {'create-ks:["create"],
+           'marmalade_royalty:{'creator_acct:"比特币",
+                               'creator_guard:{'pred:"keys-all", 'keys:["creator-key"]},
+                               'rate:1.5,
+                               'currencies:[coin]}})
+(expect-failure "Bad account name" ": Account does not conform to the charset"
+  (create-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" 1 "http://token-with-royalty"
+                [marmalade-ng.policy-fixed-sale, free.guardian-royalty] (read-keyset 'create-ks)))
+
+(env-data {'create-ks:["create"],
+           'marmalade_royalty:{'creator_acct:"creator",
+                               'creator_guard:{'pred:"keys-all", 'keys:["creator-key"]},
+                               'rate:1.5,
+                               'currencies:[coin]}})
+(expect-failure "Bad rate" "Rate must be between 0.0 and 1.0"
+  (create-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" 1 "http://token-with-royalty"
+                [marmalade-ng.policy-fixed-sale, free.guardian-royalty] (read-keyset 'create-ks)))
+
+;    -> bad currencies list
+(env-data {'create-ks:["create"],
+           'marmalade_royalty:{'creator_acct:"creator",
+                               'creator_guard:{'pred:"keys-all", 'keys:["creator-key"]},
+                               'rate:0.1,
+                               'currencies:[]}})
+(expect-failure "Bad currency list" "Incorrect currencies list"
+  (create-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" 1 "http://token-with-royalty"
+                [marmalade-ng.policy-fixed-sale, free.guardian-royalty] (read-keyset 'create-ks)))
+
+
+; Now add the data => Royalty = 10 %
+(env-data {'create-ks:["create"],
+           'marmalade_royalty:{'creator_acct:"creator",
+                               'creator_guard:{'pred:"keys-all", 'keys:["creator-key"]},
+                               'recipients:[{'account:"creator", 'guard:{'pred:"keys-all", 'keys:["creator-key"]}, 'rate:0.08},
+                                            {'account:"alice", 'guard:{'pred:"keys-all", 'keys:["alice-key"]}, 'rate:0.02}],
+                               'currencies:[coin]}})
+(create-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" 1 "http://token-with-royalty"
+              [marmalade-ng.policy-fixed-sale, free.guardian-royalty] (read-keyset 'create-ks))
+
+(env-data {'alice-ks:["alice-key"]})
+
+(mint "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "alice" (read-keyset 'alice-ks) 0.6)
+
+; Test the details
+(expect-that "Check rate in details" (compose (at 'rate) (= 0.1)) (get-royalty-details "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw"))
+(expect-that "Check accout in details" (compose (at 'creator-account) (= "creator")) (get-royalty-details "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw"))
+
+(expect-that "Check get by creator" (compose (length) (= 1)) (get-royalty-details-per-creator "creator"))
+(expect-that "Check for a unknown creator" (compose (length) (= 0)) (get-royalty-details-per-creator "unknown-creator"))
+
+
+(commit-tx)
+
+;  (begin-tx "Sales")
+;  (env-hash (hash "fixed-sale-1"))
+;  (print (format "Sale ID 1: => {}" [(tx-hash)]))
+
+;  ; Alice will sell 0.1 to bob
+;  (use marmalade-ng.ledger)
+;  (use marmalade-ng.policy-fixed-sale)
+
+;  (env-sigs [ {'key:"alice-key", 'caps:[(OFFER "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "alice" 0.1)]}
+;             ])
+
+;  (env-chain-data {"block-time": (time "2023-01-01T00:00:00Z")})
+;  (expect "Balance of was 0.6" 0.6 (get-balance "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "alice"))
+
+
+;  ; try without env-data
+;  (expect-failure "No env-data provided" "sale not present in data"
+;    (sale "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "alice" 0.1 (time "2023-06-01T00:00:00Z")))
+
+;  ; try with a bad fungible
+;  (env-data {'marmalade_sale: {'sale_type:"fixed", 'currency:fake-fungible},
+;             'marmalade_fixed_quote: {'recipient:"alice", 'price:5.0 }})
+;  (expect-failure "Bad fungible" "Currency is not allowed"
+;    (sale "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "alice" 0.1 (time "2023-06-01T00:00:00Z")))
+
+;  ; Now try evrything good
+;  (env-data {'marmalade_sale: {'sale_type:"fixed", 'currency:coin },
+;             'marmalade_fixed_quote: {'recipient:"alice", 'price:5.0 }})
+
+
+;  (sale "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "alice" 0.1 (time "2023-06-01T00:00:00Z"))
+
+
+
+;  (expect-that "It should exist 1 active sale" (compose (length) (= 1)) (get-all-active-sales))
+;  (expect-that "It should exist 1 active sale" (compose (length) (= 1)) (get-sales-for-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw"))
+
+;  (print (+ "Escrow account: => " (at 'escrow-account (get-sale (tx-hash)))))
+
+
+;  (commit-tx)
+
+
+;  ; Bob will try to buy
+;  (begin-tx "Sales buy")
+;  (env-hash (hash "fixed-sale-1-buy"))
+;  (use marmalade-ng.ledger)
+;  (use marmalade-ng.policy-fixed-sale)
+
+;  ; First confirm the balances of their respective KDA accounts
+;  (expect "Initial balance should be 1000" 1000.0 (coin.get-balance "alice"))
+;  (expect "Initial balance should be 1000" 1000.0 (coin.get-balance "bob"))
+
+;  (env-data {'buyer:"bob", 'buyer-guard:{'pred:"keys-all", 'keys:["bob-key"]}})
+
+
+;  (env-sigs [{'key:"bob-key", 'caps:[(coin.TRANSFER "bob" "c:uZK0n0opPMtEMAOctKX2S-nNa3KCotC9TBQCnXPOYeY" 5.0)]}])
+;  (env-chain-data {"block-time": (time "2023-05-01T00:00:00Z")})
+
+
+;  (ev-analyzer.store (env-events true))
+;  (continue-pact 1 false (hash  "fixed-sale-1"))
+;  (ev-analyzer.store (env-events true))
+
+;  (expect "Event ROYALTY-PAID has been emitted" true (ev-analyzer.is-present "ROYALTY-PAID"))
+;  (expect "ROYALTY-PAIDgood params" ["t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "creator" 0.5] (ev-analyzer.params "ROYALTY-PAID"))
+
+
+
+;  ; Check the KDA balances
+;  (expect "Final balance should be 1004.5" 1004.5 (coin.get-balance "alice"))
+;  (expect "Final balance should be 995" 995.0 (coin.get-balance "bob"))
+;  (expect "Final balance should be 0.5" 0.5 (coin.get-balance "creator"))
+
+;  ; Checl the token balances
+;  (expect "Balance of alice is now  0.5" 0.5 (get-balance "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "alice"))
+;  (expect "Balance of alice is now  0.1" 0.1 (get-balance "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "bob"))
+
+;  (expect-that "It should exist 0 active sale" (compose (length) (= 0)) (get-all-active-sales))
+;  (expect-that "It should exist 0 active sale" (compose (length) (= 0)) (get-sales-for-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw"))
+;  (commit-tx)
+
+;  ;; Test Royalty rotation
+;  (begin-tx "Rotate creator")
+;  (use free.guardian-royalty)
+
+;  ; Try without signature
+;  (env-data {'new-ks:{'pred:"keys-all", 'keys:["new-creator-key"]}})
+
+;  (expect-failure "No sigs" "Keyset failure"
+;    (rotate "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "new-creator" (read-keyset 'new-ks)))
+
+;  (env-sigs [{'key:"creator-key", 'caps:[(UPDATE-ROYALTY "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw")]}])
+
+;  ; Try with bad name
+;  (expect-failure "Bad name" "Account name does not conform"
+;    (rotate "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "X" (read-keyset 'new-ks)))
+
+;  ;; Try evrything good
+;  (rotate "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" "new-creator" (read-keyset 'new-ks))
+
+;  ;; Check that the rotation has been applied
+;  (expect-that "New creator name" (compose (at 'creator-account) (= "new-creator")) (get-royalty-details "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw"))
+;  (commit-tx)
+
+;  ;; Test update currencies
+;  (begin-tx "Update currencies")
+;  (use free.guardian-royalty)
+
+;  ; Check the list before
+;  (expect-that "Old fungible list" (compose (at 'currencies) (= [coin])) (get-royalty-details "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw"))
+
+
+;  ; Try without signature
+;  (env-sigs [])
+;  (expect-failure "No sigs" "Keyset failure"
+;    (update-allowed-currencies "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" [fake-fungible]))
+
+;  ; Bad keyset (remind we rotated during the next step)
+;  (env-sigs [{'key:"creator-key", 'caps:[(UPDATE-ROYALTY "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw")]}])
+
+;  (expect-failure "No sigs" "Keyset failure"
+;    (update-allowed-currencies "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" [fake-fungible]))
+
+;  (env-sigs [{'key:"new-creator-key", 'caps:[(UPDATE-ROYALTY "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw")]}])
+;  ; Check with a bad fungible list
+;  (expect-failure "Bad fungible list" "Incorrect currencies list"
+;    (update-allowed-currencies "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" []))
+
+;  ; Now everything good
+;  (update-allowed-currencies "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" [fake-fungible])
+
+;  ; Check that the new list has been apllied
+;  (expect-that "New fungible list" (compose (at 'currencies) (= [fake-fungible])) (get-royalty-details "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw"))
+
+
+;  (commit-tx)
