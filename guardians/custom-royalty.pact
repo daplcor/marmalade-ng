@@ -46,8 +46,8 @@
     ;-----------------------------------------------------------------------------
     ; Constants
     ;-----------------------------------------------------------------------------
-    (defconst MAX_RECIPIENTS 4)
-    (defconst MAX_TOTAL_RATE 0.10)
+    (defconst MAX_RECIPIENTS 3)
+    (defconst MAX_TOTAL_RATE 0.05)
   
     ;-----------------------------------------------------------------------------
     ; Capabilities and events
@@ -98,11 +98,13 @@
   
     (defun enforce-init:bool (token:object{token-info})
       (require-capability (marmalade-ng.ledger.POLICY-ENFORCE-INIT token guardian-royalty))
-      (let ((royalty-init-msg (read-royalty-init-msg token))
-            (token-id (at 'id token)))
+      (let* ((royalty-init-msg (read-royalty-init-msg token))
+            (token-id (at 'id token))
+            (recip (at 'recipients royalty-init-msg)))
         (bind royalty-init-msg {'creator_acct:=c-a, 'creator_guard:=c-g, 'recipients:=recipients, 'currencies:=cur}
           (enforce-valid-account c-a)
         ;    (enforce-valid-rate rate)
+          (enforce-valid-recipients recip)
           (enforce-valid-fungibles cur)
           (insert royalty-tokens token-id {'token-id:token-id,
                                            'creator-account:c-a,
@@ -151,11 +153,11 @@
         (with-read royalty-tokens (at 'id token) {'recipients:=recipients}
         (let* ((escrow (marmalade-ng.ledger.escrow))
                 (escrow-balance (currency::get-balance escrow)))
-                (fold (pay-royalty escrow currency escrow-balance (at 'id token)) 0.0 recipients))))
+                (fold (pay-royalty escrow currency escrow-balance token) 0.0 recipients))false))
     )
 
-    (defun pay-royalty:decimal (escrow:string currency:module{fungible-v2} escrow-balance:decimal token-id:string prev-paid:decimal recipient:object{recipient-sch})
-    (require-capability (marmalade-ng.ledger.POLICY-ENFORCE-SETTLE token-id (pact-id) guardian-royalty))
+    (defun pay-royalty:decimal (escrow:string currency:module{fungible-v2} escrow-balance:decimal token:object{token-info} prev-paid:decimal recipient:object{recipient-sch})
+    (require-capability (marmalade-ng.ledger.POLICY-ENFORCE-SETTLE token (pact-id) guardian-royalty))
       (bind recipient {'account:=account, 'guard:=guard, 'rate:=rate}
         (let* ((royalty-amount (floor (* rate escrow-balance) (currency::precision)))
                (current-guard (try guard (at 'guard (currency::details account)))))
@@ -163,7 +165,7 @@
               (let ((total-paid (+ prev-paid royalty-amount)))
                 (install-capability (currency::TRANSFER escrow account royalty-amount))
                 (currency::transfer-create escrow account guard royalty-amount)
-                (emit-event (ROYALTY-PAID token-id account royalty-amount))
+                (emit-event (ROYALTY-PAID (at 'id token) account royalty-amount))
                 total-paid)
               prev-paid)))
     )
@@ -198,7 +200,7 @@
     ;-----------------------------------------------------------------------------
     (defun get-royalty-details:object{royalty-token-sch} (token-id:string)
       @doc "Return the details of the royalty spec for a token-id"
-      (read royalty-tokens token-id))
+       (read royalty-tokens token-id))
   
     ;-----------------------------------------------------------------------------
     ; View functions (local only)
