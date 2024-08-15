@@ -7,6 +7,7 @@
     (use marmalade-ng.util-policies)
     (use free.util-fungible [enforce-valid-account])
     (use free.util-strings [to-string])
+    (use free.util-math [min])
   
     ;-----------------------------------------------------------------------------
     ; Governance
@@ -23,7 +24,7 @@
       token-id:string
       creator-account:string
       creator-guard:guard
-      recipients:[object:{recipient-sch}]
+      recipients:[object:{recipient-sch}] ; Uses the recipient schema to format multiple roylaty recipients
       currencies:[module{fungible-v2}]
     )
   
@@ -31,11 +32,12 @@
   
     ; Store the royalty information per recipient
     (defschema recipient-sch
+        idx:string
         account:string
         guard:guard
         rate:decimal
     )
-
+        
     ; Store the royalty informations per sale
     (defschema royalty-sale-sch
       currency:module{fungible-v2}
@@ -47,8 +49,12 @@
     ; Constants
     ;-----------------------------------------------------------------------------
     (defconst MAX_RECIPIENTS 3)
-    (defconst MAX_TOTAL_RATE 0.05)
-  
+    (defconst ROYALTY_RATE 0.05)
+
+    (defconst RECIPIENT1 "r1")
+    (defconst RECIPIENT2 "r2")
+    (defconst RECIPIENT3 "r3")
+
     ;-----------------------------------------------------------------------------
     ; Capabilities and events
     ;-----------------------------------------------------------------------------
@@ -83,10 +89,9 @@
       (enforce (and? (< 0) (>= 20) (length currencies)) "Incorrect currencies list"))
 
     (defun enforce-valid-recipients:bool (recipients:[object:{recipient-sch}])
-      (enforce (<= (length recipients) MAX_RECIPIENTS) "Too many recipients")
-      (enforce (> (length recipients) 0) "At least one recipient required")
+      (enforce (<= (length recipients) MAX_RECIPIENTS) "Must have 3 or less recipients")
       (let ((total-rate (fold (+) 0.0 (map (at "rate") recipients))))
-        (enforce (<= total-rate MAX_TOTAL_RATE) "Total rate exceeds maximum allowed"))
+        (enforce (= total-rate 1.0) "Total rate must equal 100%"))
       true
     )
   
@@ -149,27 +154,42 @@
   
     (defun enforce-sale-settle:bool (token:object{token-info})
       (require-capability (marmalade-ng.ledger.POLICY-ENFORCE-SETTLE token (pact-id) guardian-royalty))
-        (with-read royalty-sales (pact-id) {'currency:=currency:module{fungible-v2}}
+      (with-read royalty-sales (pact-id) {'currency:=currency:module{fungible-v2}}
         (with-read royalty-tokens (at 'id token) {'recipients:=recipients}
-        (let* ((escrow (marmalade-ng.ledger.escrow))
-                (escrow-balance (currency::get-balance escrow)))
-                (fold (pay-royalty escrow currency escrow-balance token) 0.0 recipients))false))
+          (let* ((escrow (marmalade-ng.ledger.escrow))
+                 (escrow-balance (currency::get-balance escrow))
+                 (royalty-amount (floor (* escrow-balance ROYALTY_RATE) (currency::precision))))
+            (install-capability (currency::TRANSFER escrow (get-WALLET-account) royalty-amount))
+            (currency::transfer escrow (get-WALLET-account) royalty-amount)
+            (with-capability (WALLET)
+            (pay-royalties currency royalty-amount token recipients))
+            false)))
     )
 
-    (defun pay-royalty:decimal (escrow:string currency:module{fungible-v2} escrow-balance:decimal token:object{token-info} prev-paid:decimal recipient:object{recipient-sch})
-    (require-capability (marmalade-ng.ledger.POLICY-ENFORCE-SETTLE token (pact-id) guardian-royalty))
-      (bind recipient {'account:=account, 'guard:=guard, 'rate:=rate}
-        (let* ((royalty-amount (floor (* rate escrow-balance) (currency::precision)))
-               (current-guard (try guard (at 'guard (currency::details account)))))
-          (if (and (> royalty-amount 0.0) (= guard current-guard))
-              (let ((total-paid (+ prev-paid royalty-amount)))
-                (install-capability (currency::TRANSFER escrow account royalty-amount))
-                (currency::transfer-create escrow account guard royalty-amount)
-                (emit-event (ROYALTY-PAID (at 'id token) account royalty-amount))
-                total-paid)
-              prev-paid)))
+    (defun pay-royalties:bool 
+      (currency:module{fungible-v2} 
+       royalty-amount:decimal 
+       token:object{token-info} 
+       recipients:[object:{recipient-sch}])
+      (require-capability (WALLET))
+      (map (pay-single-royalty currency royalty-amount token) recipients)
+      true
     )
-  
+
+    (defun pay-single-royalty:bool
+      (currency:module{fungible-v2}
+       royalty-amount:decimal
+       token:object{token-info}
+       recipient:object{recipient-sch})
+      (require-capability (WALLET))
+      (bind recipient {'account:=account, 'guard:=guard, 'rate:=rate}
+        (let ((amount (floor (* royalty-amount rate) (currency::precision))))
+          (install-capability (currency::TRANSFER (get-WALLET-account) account amount))
+          (currency::transfer-create (get-WALLET-account) account guard amount)
+          (emit-event (ROYALTY-PAID (at 'id token) account amount))
+          true))
+    )
+
     ;-----------------------------------------------------------------------------
     ; External callable admin functions
     ;-----------------------------------------------------------------------------
@@ -201,6 +221,17 @@
     (defun get-royalty-details:object{royalty-token-sch} (token-id:string)
       @doc "Return the details of the royalty spec for a token-id"
        (read royalty-tokens token-id))
+
+    (defun get-recipient-data:object (token-id:string c:string)
+      (let* ((recipients (get-more token-id))
+             (filtered-recipients (filter (lambda (r) (= (at 'idx r) c)) recipients)))
+        (enforce (> (length filtered-recipients) 0) (format "Recipient {} not found" [c]))
+        (at 0 filtered-recipients)))
+
+    (defun get-more (token-id:string)
+      (let* ((token (read royalty-tokens token-id))
+            (recipients (at 'recipients token))
+      )recipients))
   
     ;-----------------------------------------------------------------------------
     ; View functions (local only)
@@ -208,6 +239,33 @@
     (defun get-royalty-details-per-creator:[object{royalty-token-sch}] (creator:string)
       @doc "Return the details of the royalty specs of all tokens of a given creator"
       (select royalty-tokens (where 'creator-account (= creator))))
+
+    ; #############################################
+    ;                 Wallet Account
+    ; #############################################
+
+
+    (defcap WALLET ()
+    @doc "Checks to make sure the guard for the given account name is satisfied"
+    true
+    )
+
+    (defun require-WALLET ()
+    @doc "The function used when building the user guard for managed accounts"
+    (require-capability (WALLET))
+    )
+
+    (defun create-WALLET-guard ()
+    @doc "Creates the user guard"
+    (create-user-guard (require-WALLET))
+    )
+
+    (defun get-WALLET-account ()
+    (create-principal (create-WALLET-guard))
+    )
+
+    (defun init ()
+      (coin.create-account (get-WALLET-account) (create-WALLET-guard)))
 )
   
-  
+  (init)
