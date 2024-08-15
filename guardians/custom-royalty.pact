@@ -51,10 +51,6 @@
     (defconst MAX_RECIPIENTS 3)
     (defconst ROYALTY_RATE 0.05)
 
-    (defconst RECIPIENT1 "r1")
-    (defconst RECIPIENT2 "r2")
-    (defconst RECIPIENT3 "r3")
-
     ;-----------------------------------------------------------------------------
     ; Capabilities and events
     ;-----------------------------------------------------------------------------
@@ -108,7 +104,6 @@
             (recip (at 'recipients royalty-init-msg)))
         (bind royalty-init-msg {'creator_acct:=c-a, 'creator_guard:=c-g, 'recipients:=recipients, 'currencies:=cur}
           (enforce-valid-account c-a)
-        ;    (enforce-valid-rate rate)
           (enforce-valid-recipients recip)
           (enforce-valid-fungibles cur)
           (insert royalty-tokens token-id {'token-id:token-id,
