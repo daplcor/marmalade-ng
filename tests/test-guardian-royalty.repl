@@ -75,6 +75,29 @@
     (create-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" 1 "http://token-with-royalty"
                   [marmalade-ng.policy-fixed-sale, free.guardian-royalty] (read-keyset 'create-ks)))
      
+                  (env-data {'create-ks:["create"],
+                  'marmalade_royalty:{'creator_acct:"比特币",
+                                      'creator_guard:{'pred:"keys-all", 'keys:["creator-key"]},
+                                      'recipients: [
+                                         {'idx: "r1", 'guard:{'pred:"keys-all", 'keys:["creator-key"]}, 'rate:0.40},
+                                         {'idx: "r2", 'account:"alice", 'guard:{'pred:"keys-all", 'keys:["alice-key"]}, 'rate:0.60}
+                                      ],
+                                      'currencies:[coin]}})
+       (expect-failure "Bad account name" ": Account does not conform to the charset"
+         (create-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" 1 "http://token-with-royalty"
+                       [marmalade-ng.policy-fixed-sale, free.guardian-royalty] (read-keyset 'create-ks)))
+
+                       (env-data {'create-ks:["create"],
+                       'marmalade_royalty:{'creator_acct:"比特币",
+                                           'creator_guard:{'pred:"keys-all", 'keys:["creator-key"]},
+                                           'recipients: [
+                                              {'idx: "r1", 'account:"creator", 'rate:0.40},
+                                              {'idx: "r2", 'account:"alice", 'guard:{'pred:"keys-all", 'keys:["alice-key"]}, 'rate:0.60}
+                                           ],
+                                           'currencies:[coin]}})
+            (expect-failure "Bad account name no guard" ": Account does not conform to the charset"
+              (create-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" 1 "http://token-with-royalty"
+                            [marmalade-ng.policy-fixed-sale, free.guardian-royalty] (read-keyset 'create-ks)))
 
 ;    -> bad currencies list
 (env-data {'create-ks:["create"],
