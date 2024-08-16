@@ -6,3 +6,12 @@ deployment/tx_*.yaml
 deployment/*.json
 deployment/.pact/*
 doc/build/
+
+# Ignore macOS system files
+Icon?
+Icov.info
+**/Icov.info
+**/.DS_Store
+.DS_Store
+*.info
+.vscode/settings.json
