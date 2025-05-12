@@ -118,7 +118,7 @@
       true)
   )
 
-  (defcap POLICY-ENFORCE-MINT (token:object{token-info} mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-MINT (token:object{token-info} md:module{token-policy-ng-v1})
     true)
 
   (defun enforce-mint:bool (token:object{token-info} account:string amount:decimal)
@@ -128,7 +128,7 @@
     true
   )
 
-  (defcap POLICY-ENFORCE-BURN (token:object{token-info} mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-BURN (token:object{token-info} md:module{token-policy-ng-v1})
     true)
 
   (defun enforce-burn:bool (token:object{token-info} account:string amount:decimal)
@@ -138,7 +138,7 @@
     true
   )
 
-  (defcap POLICY-ENFORCE-TRANSFER (token:object{token-info} mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-TRANSFER (token:object{token-info} md:module{token-policy-ng-v1})
     true)
 
   (defun enforce-transfer:bool (token:object{token-info} sender:string receiver:string amount:decimal)
@@ -148,7 +148,7 @@
     true
   )
 
-  (defcap POLICY-ENFORCE-OFFER (token:object{token-info} sale-id:string mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-OFFER (token:object{token-info} sale-id:string md:module{token-policy-ng-v1})
     true)
 
   (defun enforce-sale-offer:bool (token:object{token-info} seller:string amount:decimal timeout:time)
@@ -165,7 +165,7 @@
                             policies-lst)))
   )
 
-  (defcap POLICY-ENFORCE-WITHDRAW (token:object{token-info} sale-id:string mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-WITHDRAW (token:object{token-info} sale-id:string md:module{token-policy-ng-v1})
     true)
 
   (defun enforce-sale-withdraw:bool (token:object{token-info})
@@ -175,7 +175,7 @@
     true
   )
 
-  (defcap POLICY-ENFORCE-BUY (token:object{token-info} sale-id:string mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-BUY (token:object{token-info} sale-id:string md:module{token-policy-ng-v1})
     true)
 
   (defun enforce-sale-buy:bool (token:object{token-info} buyer:string)
@@ -185,7 +185,7 @@
     true
   )
 
-  (defcap POLICY-ENFORCE-SETTLE (token:object{token-info} sale-id:string mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-SETTLE (token:object{token-info} sale-id:string md:module{token-policy-ng-v1})
     true)
 
   (defun enforce-sale-settle:bool (token:object{token-info})
