@@ -35,7 +35,7 @@
                                'creator_guard:{'pred:"keys-all", 'keys:["creator-key"]},
                                'rate:1.5,
                                'currencies:[coin]}})
-(expect-failure "Bad account name" ": Account does not conform to the charset"
+(expect-failure "Bad account name" "Account does not conform to the charset LATIN1"
   (create-token "t:422uU9AJHLeLr6iPGHCkUA_eIvTboKKp5dXaUmctCAw" 1 "http://token-with-royalty"
                 [marmalade-ng.policy-fixed-sale, marmalade-ng.policy-adjustable-royalty] (read-keyset 'create-ks)))
 
