@@ -51,12 +51,12 @@
     @doc "Convert a list of names concatened in a single string to a list of policies"
     (compose (split " ") (list-to-policies) names))
 
-  (defun from-policy:string (mod:module{token-policy-ng-v1})
+  (defun from-policy:string (md:module{token-policy-ng-v1})
     @doc "Convert a policy to a string"
-    (let ((match:[object{entry}] (filter (where 'pol (= mod)) POLICIES-LIST)))
+    (let ((match:[object{entry}] (filter (where 'pol (= md)) POLICIES-LIST)))
       (if (!= 0 (length match))
           (at 'name (first match))
-          (default-name mod)))
+          (default-name md)))
   )
 
   (defun policies-to-list:[string] (pols:[module{token-policy-ng-v1}])
