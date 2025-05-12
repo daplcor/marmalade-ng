@@ -268,7 +268,7 @@
   ;-----------------------------------------------------------------------------
   ; Public Marmalade functions => Create Token
   ;-----------------------------------------------------------------------------
-  (defcap POLICY-ENFORCE-INIT (token:object{token-info} mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-INIT (token:object{token-info} md:module{token-policy-ng-v1})
     true)
 
   (defun sort-policies:[module{token-policy-ng-v1}] (in:[module{token-policy-ng-v1}])
@@ -313,7 +313,7 @@
   ;-----------------------------------------------------------------------------
   ; Public Marmalade functions => Transfer Token
   ;-----------------------------------------------------------------------------
-  (defcap POLICY-ENFORCE-TRANSFER (token:object{token-info} mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-TRANSFER (token:object{token-info} md:module{token-policy-ng-v1})
     true)
 
   (defun transfer:bool (id:string sender:string receiver:string amount:decimal)
@@ -346,7 +346,7 @@
   ;-----------------------------------------------------------------------------
   ; Public Marmalade functions => Mint Token
   ;-----------------------------------------------------------------------------
-  (defcap POLICY-ENFORCE-MINT (token:object{token-info} mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-MINT (token:object{token-info} md:module{token-policy-ng-v1})
     true)
 
   (defun mint:bool (id:string account:string guard:guard amount:decimal)
@@ -374,7 +374,7 @@
   ;-----------------------------------------------------------------------------
   ; Public Marmalade functions => Burn Token
   ;-----------------------------------------------------------------------------
-  (defcap POLICY-ENFORCE-BURN (token:object{token-info} mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-BURN (token:object{token-info} md:module{token-policy-ng-v1})
     true)
 
   (defun burn:bool (id:string account:string amount:decimal)
@@ -418,16 +418,16 @@
   ;-----------------------------------------------------------------------------
   ; Public Marmalade functions => Sale
   ;-----------------------------------------------------------------------------
-  (defcap POLICY-ENFORCE-OFFER (token:object{token-info} sale-id:string mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-OFFER (token:object{token-info} sale-id:string md:module{token-policy-ng-v1})
     true)
 
-  (defcap POLICY-ENFORCE-WITHDRAW (token:object{token-info} sale-id:string mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-WITHDRAW (token:object{token-info} sale-id:string md:module{token-policy-ng-v1})
     true)
 
-  (defcap POLICY-ENFORCE-BUY (token:object{token-info} sale-id:string mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-BUY (token:object{token-info} sale-id:string md:module{token-policy-ng-v1})
     true)
 
-  (defcap POLICY-ENFORCE-SETTLE (token:object{token-info} sale-id:string mod:module{token-policy-ng-v1})
+  (defcap POLICY-ENFORCE-SETTLE (token:object{token-info} sale-id:string md:module{token-policy-ng-v1})
     true)
 
   (defpact sale:bool (id:string seller:string amount:decimal timeout:time)

@@ -6,3 +6,4 @@ deployment/tx_*.yaml
 deployment/*.json
 deployment/.pact/*
 doc/build/
+.vscode/
